@@ -25,8 +25,7 @@ with st.sidebar:
 
 # ── 파일을 tmp에 저장 (openpyxl은 path 필요) ────────────
 def save_tmp(uploaded) -> str:
-    import tempfile
-    tmp = os.path.join(tempfile.gettempdir(), uploaded.name)
+    tmp = os.path.join("/tmp", uploaded.name)
     with open(tmp, "wb") as f:
         f.write(uploaded.getvalue())
     return tmp
@@ -75,7 +74,7 @@ if st.session_state.table_data:
     st.divider()
 
     # ── 이미지 다운로드 ─────────────────────────────────
-    col1, col2, col3 = st.columns([1, 1, 4])
+    col1, col2 = st.columns([1, 4])
     with col1:
         if st.button("🖼️ 이미지 생성"):
             with st.spinner("이미지 렌더링 중..."):
@@ -83,20 +82,8 @@ if st.session_state.table_data:
                                          HIGHLIGHT_ROWS, RED_IF_NEGATIVE)
             st.session_state.img_bytes = img_bytes
 
-    with col2:
-        from renderer import render_excel
-
-        excel_bytes = render_excel(full_table, FUND_ORDER, FUND_DISPLAY,
-                                   HIGHLIGHT_ROWS, RED_IF_NEGATIVE)
-        st.download_button(
-            label="⬇️ 엑셀 다운로드",
-            data=excel_bytes,
-            file_name="mmf_comparison.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
     if "img_bytes" in st.session_state and st.session_state.img_bytes:
-        with col3:
+        with col2:
             st.download_button(
                 label="⬇️ PNG 다운로드",
                 data=st.session_state.img_bytes,

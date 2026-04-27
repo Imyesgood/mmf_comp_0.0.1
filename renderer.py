@@ -151,31 +151,14 @@ def _render_matplotlib(full_table, fund_order, fund_display,
 
     # 한글 폰트
     font_candidates = [
-        # Windows
-        "C:/Windows/Fonts/malgun.ttf",
-        "C:/Windows/Fonts/malgunbd.ttf",
-        "C:/Windows/Fonts/NanumGothic.ttf",
-        # Linux/Mac
         "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
     ]
-    font_set = False
     for fc in font_candidates:
         if os.path.exists(fc):
             fm.fontManager.addfont(fc)
             plt.rcParams["font.family"] = fm.FontProperties(fname=fc).get_name()
-            font_set = True
             break
-
-    if not font_set:
-        # 시스템 폰트에서 한글 지원 폰트 자동 탐색
-        kor_fonts = [
-            f.name for f in fm.fontManager.ttflist
-            if any(k in f.name.lower() for k in ["malgun", "nanum", "gothic", "noto", "cjk", "kr"])
-        ]
-        if kor_fonts:
-            plt.rcParams["font.family"] = kor_fonts[0]
 
     labels = list(full_table.keys())
     cols   = fund_order
@@ -249,78 +232,3 @@ def _render_matplotlib(full_table, fund_order, fund_display,
 
 
 import os  # 이미 상단에 없으니 보장
-
-def render_excel(full_table, fund_order, fund_display,
-                 highlight_rows, red_if_negative) -> bytes:
-    import openpyxl
-    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "MMF 피어그룹 비교표"
-
-    # ── 스타일 정의 ──────────────────────────────────────
-    thin = Side(style="thin", color="C8D8C8")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-    def make_fill(hex_color):
-        return PatternFill("solid", fgColor=hex_color.lstrip("#"))
-
-    header_fill   = make_fill(C_HEADER_BG)
-    odd_fill      = make_fill("F0F7F0")
-    even_fill     = make_fill("FFFFFF")
-    label_odd     = make_fill("F0F7F0")
-    label_even    = make_fill("F5F5F5")
-    highlight_fill = make_fill("FFFDE7")
-    neg_font_color = "D32F2F"
-
-    # ── 헤더 행 ─────────────────────────────────────────
-    ws.cell(1, 1, "펀드명").font = Font(bold=True, color="FFFFFF", name="맑은 고딕")
-    ws.cell(1, 1).fill      = header_fill
-    ws.cell(1, 1).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    ws.cell(1, 1).border    = border
-    ws.row_dimensions[1].height = 30
-
-    for j, code in enumerate(fund_order, start=2):
-        display = fund_display.get(code, code).replace("\n", "\n")
-        cell = ws.cell(1, j, display)
-        cell.font      = Font(bold=True, color="FFFFFF", name="맑은 고딕")
-        cell.fill      = header_fill
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border    = border
-
-    # ── 데이터 행 ────────────────────────────────────────
-    for i, (label, row_data) in enumerate(full_table.items(), start=2):
-        is_hl = label in highlight_rows
-        row_fill     = highlight_fill if is_hl else (odd_fill  if i % 2 == 0 else even_fill)
-        label_fill   = highlight_fill if is_hl else (label_odd if i % 2 == 0 else label_even)
-
-        # 행 레이블
-        lc = ws.cell(i, 1, label)
-        lc.font      = Font(bold=is_hl, name="맑은 고딕")
-        lc.fill      = label_fill
-        lc.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        lc.border    = border
-        ws.row_dimensions[i].height = 28 if "\n" in label else 20
-
-        # 값 셀
-        for j, code in enumerate(fund_order, start=2):
-            val = str(row_data.get(code, "-"))
-            is_neg = label in red_if_negative and _is_negative(val)
-            fc = ws.cell(i, j, val)
-            fc.font      = Font(bold=is_hl, color=neg_font_color if is_neg else "000000", name="맑은 고딕")
-            fc.fill      = row_fill
-            fc.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            fc.border    = border
-
-    # ── 열 너비 ─────────────────────────────────────────
-    ws.column_dimensions["A"].width = 22
-    for j in range(2, len(fund_order) + 2):
-        ws.column_dimensions[get_column_letter(j)].width = 14
-
-    # ── 바이트 반환 ──────────────────────────────────────
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf.read()
